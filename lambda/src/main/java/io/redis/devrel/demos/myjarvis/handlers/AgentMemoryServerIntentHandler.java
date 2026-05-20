@@ -43,7 +43,7 @@ public class AgentMemoryServerIntentHandler implements RequestHandler {
 
     @Override
     public boolean canHandle(HandlerInput handlerInput) {
-        return handlerInput.matches(Predicates.intentName(Constants.AGENT_MEMORY_SERVER_INTENT));
+        return handlerInput.matches(Predicates.intentName(Constants.AGENT_MEMORY_INTENT));
     }
 
     @Override

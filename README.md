@@ -1,7 +1,7 @@
 # Agent Memory Server with Alexa Demo
 
 ## Overview
-This demo demonstrates how [Redis Agent Memory Server](https://redis.github.io/agent-memory-server) can extend Amazon Alexa with conversational memory. Built using Java, LangChain4J, AWS Lambda, and Redis Cloud, it enables Alexa to recall past conversations and deliver contextual, intelligent responses. It showcases how Redis can act as a memory layer for AI assistants, enriching the natural language experience through state persistence and fast retrieval.
+This demo demonstrates how [Redis Agent Memory](https://redis.io/docs/latest/operate/rc/agent-memory/) — the managed AI memory service on Redis Cloud — can extend Amazon Alexa with conversational memory. Built using Java, LangChain4J, AWS Lambda, and Redis Cloud, it enables Alexa to recall past conversations and deliver contextual, intelligent responses. It showcases how Redis can act as a memory layer for AI assistants, enriching the natural language experience through state persistence and fast retrieval.
 
 ## Table of Contents
 - [Demo Objectives](#demo-objectives)
@@ -16,7 +16,7 @@ This demo demonstrates how [Redis Agent Memory Server](https://redis.github.io/a
 
 ## Demo Objectives
 - Demonstrate Redis as a memory persistence layer for conversational AI.
-- Show how to integrate Redis Agent Memory Server via REST API calls.
+- Show how to integrate Redis Agent Memory (managed service) via REST API calls.
 - Automate Alexa skill deployment using Terraform, AWS Lambda, and the ASK CLI.
 - Illustrate how Redis Cloud can support scalable AI use cases.
 - Demonstrate how to implement context engineering with LangChain4J.
@@ -33,18 +33,18 @@ This demo demonstrates how [Redis Agent Memory Server](https://redis.github.io/a
 - [SED](https://formulae.brew.sh/formula/gnu-sed)
 
 ### Account Requirements
-| Account                                                  | Description                                                    |
-|:---------------------------------------------------------|:---------------------------------------------------------------|
-| [AWS account](https://aws.amazon.com/account)            | Required to create Lambda, IAM, ECS, and CloudWatch resources. |
-| [Amazon developer account](https://developer.amazon.com) | This is needed to register, deploy, and test Alexa skills.     |
-| [OpenAI](https://auth.openai.com/create-account)         | LLM that will power the intelligent responses for the skill.   |
-| [Cohere](https://cohere.com)                             | Scoring model used to deduplicate memories from the context.   |
-| [Redis Cloud](https://redis.io/try-free)                 | Database used by the Redis Agent Memory Server and LangCache.  |
+| Account                                                  | Description                                                                  |
+|:---------------------------------------------------------|:-----------------------------------------------------------------------------|
+| [AWS account](https://aws.amazon.com/account)            | Required to create Lambda, IAM, and CloudWatch resources.                    |
+| [Amazon developer account](https://developer.amazon.com) | This is needed to register, deploy, and test Alexa skills.                   |
+| [OpenAI](https://auth.openai.com/create-account)         | LLM that will power the intelligent responses for the skill.                 |
+| [Cohere](https://cohere.com)                             | Scoring model used to deduplicate memories from the context.                 |
+| [Redis Cloud](https://redis.io/try-free)                 | Required for Redis Agent Memory (managed AI memory service) and LangCache.   |
 
 ### Configuration
 
 #### AWS Setup
-1. In[README.md](README.md)stall the AWS CLI: [Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+1. Install the AWS CLI: [Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 2. Configure your credentials:
    ```sh
    aws configure
@@ -68,24 +68,29 @@ This demo demonstrates how [Redis Agent Memory Server](https://redis.github.io/a
 #### Terraform Configuration
 1. Create your variables file:
    ```sh
-   cp infrastructure/terraform/terraform.tfvars.example infrastructure/terraform/terraform.tfvars
+   cp infrastructure/terraform.tfvars.example infrastructure/terraform.tfvars
    ```
-2. Edit `infrastructure/terraform/terraform.tfvars` with your information:
+2. Edit `infrastructure/terraform.tfvars` with your information:
 
-| Variable                                  | Description                                                                                                                                                                                                                                                                                                                                                                                                         |
-|:------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `application_prefix`                      | Prefix used for the Redis Cloud subscription's name and the database name.                                                                                                                                                                                                                                                                                                                                          |
-| `database_predefined`                     | Set to `true` if you want to disable the automatic creation of the database, so you can manually create it at Redis Cloud. Note that if you do this, you must create the database using some naming conventions. The subscription name must follow the pattern `${var.application_prefix}-${var.subscription_name}` and the database name must follow the pattern `${var.application_prefix}-${var.database_name}`. |
-| `payment_card_type`                       | Credit card type linked to Redis Cloud (e.g., “Visa”). Use it only if the variable `database_predefined` is `false`.                                                                                                                                                                                                                                                                                                |
-| `payment_card_last_four`                  | Last four digits of your card (e.g., “1234”). Use it only if the variable `database_predefined` is `false`.                                                                                                                                                                                                                                                                                                         |
-| `essentials_plan_cloud_provider`          | Cloud provider for Redis Cloud (e.g., “AWS”). Use it only if the variable `database_predefined` is `false`.                                                                                                                                                                                                                                                                                                         |
-| `essentials_plan_cloud_region`            | Region for hosting Redis (e.g., “us-east-1”). Use it only if the variable `database_predefined` is `false`.                                                                                                                                                                                                                                                                                                         |
-| `openai_api_key`                          | API key used by the Alexa skill and the Agent Memory Server.                                                                                                                                                                                                                                                                                                                                                        |
-| `openai_model_name`                       | Name of the model used by the LLM to create responses.                                                                                                                                                                                                                                                                                                                                                              |
-| `cohere_api_key`                          | API key used by the Alexa skill to deduplicate memories.                                                                                                                                                                                                                                                                                                                                                            |
-| `langcache_api_base_url`                  | Base URL for the Redis LangCache service.                                                                                                                                                                                                                                                                                                                                                                           |
-| `langcache_api_key`                       | API key for the Redis LangCache service.                                                                                                                                                                                                                                                                                                                                                                            |
-| `langcache_cache_id`                      | Cache ID for the Redis LangCache service.                                                                                                                                                                                                                                                                                                                                                                           |
+| Variable                       | Description                                                                            |
+|:-------------------------------|:---------------------------------------------------------------------------------------|
+| `application_prefix`           | Prefix used for naming AWS resources (Lambda function, S3 bucket, etc.).               |
+| `openai_api_key`               | API key used by the Alexa skill to call the OpenAI LLM.                                |
+| `openai_model_name`            | Name of the OpenAI model used to generate responses (e.g., `gpt-4o`).                 |
+| `cohere_api_key`               | API key used by the Alexa skill to deduplicate memories via Cohere's scoring model.    |
+| `langcache_api_base_url`       | Base URL for the Redis LangCache service.                                              |
+| `langcache_api_key`            | API key for the Redis LangCache service.                                               |
+| `langcache_cache_id`           | Cache ID for the Redis LangCache service.                                              |
+| `redis_agent_memory_api_url`   | Base URL for the Redis Agent Memory service (e.g., `https://<region>.agent-memory.redis.io`). |
+| `redis_agent_memory_api_key`   | API key for authenticating with the Redis Agent Memory service.                        |
+| `redis_agent_memory_store_id`  | Store ID of the memory store created in Redis Agent Memory.                            |
+| `knowledge_base_bucket_name`   | Name of the S3 bucket used to upload knowledge base documents.                         |
+| `alexa_skill_id`               | The Alexa skill ID assigned by the Amazon Developer Console.                           |
+
+#### Redis Agent Memory Setup
+1. Log in to [Redis Cloud](https://redis.io/try-free) and navigate to the **Agent Memory** section.
+2. Create a new memory store and note the **API URL**, **API key**, and **Store ID**.
+3. Set these as the `redis_agent_memory_api_url`, `redis_agent_memory_api_key`, and `redis_agent_memory_store_id` variables in your `terraform.tfvars`.
 
 #### Redis LangCache Setup
 
@@ -97,9 +102,9 @@ Once configured, deploy everything using:
 ./deploy.sh
 ```
 
-When the deployment completes, note the output values including the Lambda ARN, Redis Agent Memory Server endpoint, and SSH command for validation.
+When the deployment completes, note the output values including the Lambda ARN and function URL.
 
-You can verify if the Agent Memory Server is operational by saying:
+You can verify if the Agent Memory service is reachable by saying:
 
 > “Alexa, ask my jarvis to check the memory server.”
 
@@ -127,17 +132,16 @@ Covers demo goals, motivations for a memory layer, and architecture overview.
 
 ## Architecture
 ![Skill Handler Implementation](./assets/skill-handler-impl.png)
-This architecture uses an Alexa skill written in Java and hosted as an AWS Lambda function. At the code of the Lambda function, it implements a stream handler that processes user requests and responses using the Agent Memory Server as memory storage.
+This architecture uses an Alexa skill written in Java and hosted as an AWS Lambda function. The Lambda implements a stream handler that processes user requests and responses, using Redis Agent Memory — the managed memory service on Redis Cloud — as its memory backend.
 
 ![Chat Assistant Service](./assets/chat-assistant-service.png)
-As part of the stream handler implementation, it uses a Chat Assistant Service that leverages LangChain4J to manage interactions with the Agent Memory Server. This service implements context engineering, ensuring that conversations are enriched with relevant historical data stored in Redis. OpenAI is the LLM used to process and generate responses.
+As part of the stream handler implementation, it uses a Chat Assistant Service that leverages LangChain4J to manage interactions with Redis Agent Memory. This service implements context engineering, ensuring that conversations are enriched with relevant historical data retrieved from Redis. OpenAI is the LLM used to process and generate responses.
 
 ## Known Issues
-- Initial Agent Memory Server boot-up may take several minutes before becoming reachable.
 - Alexa Developer Console may require manual linking if credentials are not fully synchronized.
 
 ## Resources
-- [Redis Agent Memory Server](https://redis.github.io/agent-memory-server)
+- [Redis Agent Memory](https://redis.io/docs/latest/operate/rc/agent-memory/)
 - [Redis Cloud](https://redis.io/try-free)
 - [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda)
 - [Amazon Alexa Skills Kit](https://developer.amazon.com/en-US/alexa/alexa-skills-kit)

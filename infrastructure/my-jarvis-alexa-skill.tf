@@ -1,6 +1,4 @@
 resource "null_resource" "my_jarvis_alexa_skill_handler_build" {
-  depends_on = [aws_ecs_service.agent_memory_server_api]
-
   triggers = {
     always_run = timestamp()
   }
@@ -125,7 +123,6 @@ resource "aws_lambda_function" "my_jarvis_alexa_skill_handler" {
   depends_on = [
     null_resource.my_jarvis_alexa_skill_handler_build,
     aws_iam_role.my_jarvis_alexa_skill_handler_role,
-    aws_ecs_service.agent_memory_server_api,
     aws_s3_object.my_jarvis_skill_handler_lambda_jar
   ]
   function_name    = "${var.application_prefix}-function"
@@ -146,11 +143,13 @@ resource "aws_lambda_function" "my_jarvis_alexa_skill_handler" {
       OPENAI_CHAT_MAX_TOKENS        = var.openai_chat_max_tokens
       COHERE_API_KEY                = var.cohere_api_key
       COHERE_MODEL_NAME             = var.cohere_model_name
-      REDIS_LANGCACHE_API_BASE_URL  = var.langcache_api_base_url
-      REDIS_LANGCACHE_API_KEY       = var.langcache_api_key
-      REDIS_LANGCACHE_CACHE_ID      = var.langcache_cache_id
-      REDIS_AGENT_MEMORY_SERVER_URL = "http://${aws_lb.agent_memory_server.dns_name}:8000"
-      KNOWLEDGE_BASE_BUCKET_NAME    = local.knowledge_base_bucket_name
+      REDIS_LANGCACHE_API_BASE_URL   = var.langcache_api_base_url
+      REDIS_LANGCACHE_API_KEY        = var.langcache_api_key
+      REDIS_LANGCACHE_CACHE_ID       = var.langcache_cache_id
+      REDIS_AGENT_MEMORY_API_URL     = var.redis_agent_memory_api_url
+      REDIS_AGENT_MEMORY_API_KEY     = var.redis_agent_memory_api_key
+      REDIS_AGENT_MEMORY_STORE_ID    = var.redis_agent_memory_store_id
+      KNOWLEDGE_BASE_BUCKET_NAME     = local.knowledge_base_bucket_name
     }
   }
 }

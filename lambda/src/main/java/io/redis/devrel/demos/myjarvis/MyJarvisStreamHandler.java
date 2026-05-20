@@ -52,14 +52,18 @@ public class MyJarvisStreamHandler extends SkillStreamHandler {
             .build();
 
     private static final ReminderService reminderService = new ReminderService();
-    private static final MemoryService memoryService = new MemoryService();
-    private static final UserService userService = new UserService();
+    private static final MemoryService memoryService = MemoryService.builder()
+            .apiUrl(REDIS_AGENT_MEMORY_API_URL)
+            .apiKey(REDIS_AGENT_MEMORY_API_KEY)
+            .storeId(REDIS_AGENT_MEMORY_STORE_ID)
+            .build();
+    private static final UserService userService = new UserService(memoryService);
     private static final ChatAssistantService chatAssistantService =
             new ChatAssistantService(
                     chatModel, scoringModel, memoryService, langCacheService,
                     List.of(
                             new DateTimeTool(),
-                            new AgentMemoryServerTool(),
+                            new AgentMemoryServerTool(memoryService),
                             new UserMemoryTool(memoryService))
             );
 

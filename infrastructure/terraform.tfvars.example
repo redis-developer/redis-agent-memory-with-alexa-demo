@@ -1,19 +1,16 @@
 application_prefix = "ams-with-alexa-demo"
 
-database_predefined            = false
-subscription_name              = "redisdb"
-database_name                  = "redisdb"
-payment_card_type              = "Visa"
-payment_card_last_four         = "0000"
-essentials_plan_cloud_provider = "AWS"
-essentials_plan_cloud_region   = "us-east-1"
-
 openai_api_key    = "your-openai-api-key"
 openai_model_name = "gpt-3.5-turbo"
 cohere_api_key = "your-cohere-api-key"
+
 langcache_api_base_url = "langcache-api-base-url"
 langcache_api_key = "your-langcache-api-key"
 langcache_cache_id = "langcache-cache-id"
+
+redis_agent_memory_api_url  = "https://<region>.agent-memory.redis.io"
+redis_agent_memory_api_key  = "your-agent-memory-api-key"
+redis_agent_memory_store_id = "your-agent-memory-store-id"
 
 knowledge_base_bucket_name = "ams-with-alexa-demo-knowledge-base"
 alexa_skill_id = "your-alexa-skill-id"

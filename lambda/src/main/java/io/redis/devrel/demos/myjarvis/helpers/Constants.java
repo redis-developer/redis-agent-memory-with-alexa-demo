@@ -6,10 +6,8 @@ public enum Constants {
 
     public static final String USER_INTRO_INTENT = "UserIntroIntent";
     public static final String REMEMBER_INTENT = "RememberIntent";
-    public static final String RECALL_INTENT = "RecallIntent";
-    public static final String FORGET_INTENT = "ForgetIntent";
     public static final String CONVERSATION_INTENT = "ConversationIntent";
-    public static final String AGENT_MEMORY_SERVER_INTENT = "AgentMemoryServerIntent";
+    public static final String AGENT_MEMORY_INTENT = "AgentMemoryIntent";
     public static final String KNOWLEDGE_BASE_INTENT = "KnowledgeBaseIntent";
 
     public static final String AMAZON_YES_INTENT = "AMAZON.YesIntent";
@@ -24,7 +22,9 @@ public enum Constants {
     public static final String MEMORY_PARAM = "memory";
     public static final String QUERY_PARAM = "query";
 
-    public static final String REDIS_AGENT_MEMORY_SERVER_URL = System.getenv("REDIS_AGENT_MEMORY_SERVER_URL");
+    public static final String REDIS_AGENT_MEMORY_API_URL = System.getenv("REDIS_AGENT_MEMORY_API_URL");
+    public static final String REDIS_AGENT_MEMORY_API_KEY = System.getenv("REDIS_AGENT_MEMORY_API_KEY");
+    public static final String REDIS_AGENT_MEMORY_STORE_ID = System.getenv("REDIS_AGENT_MEMORY_STORE_ID");
     public static final String REDIS_LANGCACHE_API_BASE_URL = System.getenv("REDIS_LANGCACHE_API_BASE_URL");
     public static final String REDIS_LANGCACHE_API_KEY = System.getenv("REDIS_LANGCACHE_API_KEY");
     public static final String REDIS_LANGCACHE_CACHE_ID = System.getenv("REDIS_LANGCACHE_CACHE_ID");

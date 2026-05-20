@@ -110,13 +110,13 @@
           "samples": []
         },
         {
-          "name": "AgentMemoryServerIntent",
+          "name": "AgentMemoryIntent",
           "slots": [],
           "samples": [
-            "to check the memory server",
-            "check the memory server",
-            "to check memory server",
-            "check memory server"
+            "to check the agent memory",
+            "check the agent memory",
+            "to check agent memory",
+            "check agent memory"
           ]
         }
       ],

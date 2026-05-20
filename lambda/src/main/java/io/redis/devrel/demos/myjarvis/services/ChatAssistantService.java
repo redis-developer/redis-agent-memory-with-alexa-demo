@@ -129,7 +129,7 @@ public class ChatAssistantService {
 
     private ChatMemory getChatMemory(String userId) {
         ChatMemoryStore chatMemoryStore = WorkingMemoryStore.builder()
-                .agentMemoryServerUrl(REDIS_AGENT_MEMORY_SERVER_URL)
+                .memoryService(memoryService)
                 .maxContextWindow(Integer.parseInt(OPENAI_CHAT_MAX_TOKENS))
                 .build();
 

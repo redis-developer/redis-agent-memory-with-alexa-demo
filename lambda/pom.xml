@@ -23,7 +23,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-lambda-java-core</artifactId>
-w            <version>1.4.0</version>
+            <version>1.4.0</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>

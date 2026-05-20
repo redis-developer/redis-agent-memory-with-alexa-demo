@@ -1,238 +1,172 @@
 package io.redis.devrel.demos.myjarvis.extensions;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
-import org.apache.http.HttpStatus;
+import io.redis.devrel.demos.myjarvis.services.MemoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
-import static io.redis.devrel.demos.myjarvis.helpers.MessageHelper.determineRole;
 import static io.redis.devrel.demos.myjarvis.helpers.MessageHelper.messageContent;
 
 public class WorkingMemoryStore implements ChatMemoryStore {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkingMemoryStore.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final HttpClient httpClient = HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_2)
-            .build();
 
-    private final String agentMemoryServerUrl;
-    private long timeToLiveInSeconds = 300;
+    private MemoryService memoryService;
     private boolean storeSystemMessages = false;
     private boolean storeAiMessages = false;
     private boolean storeToolMessages = false;
-    private String namespace = "short-term-memory";
     private int maxContextWindow = 1000;
 
-    public WorkingMemoryStore(String agentMemoryServerUrl) {
-        this.agentMemoryServerUrl = agentMemoryServerUrl;
+    // Tracks how many messages were already in the store when getMessages was last called,
+    // so updateMessages can POST only the new delta rather than the full list.
+    private int lastFetchedCount = 0;
+
+    /**
+     * Hashes an arbitrary session/actor ID to a 64-character hex string (SHA-256).
+     * The RAM API enforces a max length of 64 on session IDs and actor IDs, but
+     * Alexa session/person IDs are much longer than that.
+     */
+    private static String sanitizeSessionId(String sessionId) {
+        try {
+            var digest = MessageDigest.getInstance("SHA-256");
+            var hash = digest.digest(sessionId.getBytes(StandardCharsets.UTF_8));
+            var sb = new StringBuilder(64);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString(); // exactly 64 hex chars
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
+
+    // ---------------------------------------------------------------------------
+    // ChatMemoryStore implementation
+    // ---------------------------------------------------------------------------
 
     @Override
     public List<ChatMessage> getMessages(Object memoryId) {
-        List<ChatMessage> chatMessages = new ArrayList<>();
-        var request = HttpRequest.newBuilder()
-                .uri(URI.create(agentMemoryServerUrl + "/v1/working-memory/" +
-                        memoryId + "?namespace=" + namespace +
-                        "&context_window_max=" + maxContextWindow))
-                .GET()
-                .build();
+        var sanitizedId = sanitizeSessionId(memoryId.toString());
+        var chatMessages = new ArrayList<ChatMessage>();
 
-        try {
-            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == HttpStatus.SC_OK) {
-                var messages = objectMapper.readTree(response.body()).path("messages");
-                if (!messages.isEmpty() && !messages.isMissingNode()) {
-                    for (JsonNode messageNode : messages) {
-                        var role = messageNode.path("role").asText("");
-                        var content = messageNode.path("content").asText("");
+        for (JsonNode event : memoryService.getSessionMemoryEvents(sanitizedId)) {
+            var role = event.path("role").asText("");
+            var contentArray = event.path("content");
+            var text = contentArray.isArray() && !contentArray.isEmpty()
+                    ? contentArray.path(0).path("text").asText("")
+                    : "";
 
-                        // Skip messages based on configuration
-                        if ((!storeSystemMessages && "system".equalsIgnoreCase(role)) ||
-                                (!storeAiMessages && "ai".equalsIgnoreCase(role)) ||
-                                (!storeToolMessages && "tool".equalsIgnoreCase(role))) {
-                            continue;
-                        }
+            if (text.isBlank()) continue;
 
-                        ChatMessage chatMessage = switch (role.toLowerCase()) {
-                            case "user" -> UserMessage.from(content);
-                            case "assistant", "ai" -> AiMessage.from(content);
-                            case "system" -> SystemMessage.from(content);
-                            case "tool" -> null;
-                            default -> {
-                                if (!role.isEmpty()) {
-                                    logger.warn("Unknown message role: {}", role);
-                                }
-                                yield null;
-                            }
-                        };
+            if (!storeSystemMessages && "SYSTEM".equalsIgnoreCase(role)) continue;
+            if (!storeAiMessages && "ASSISTANT".equalsIgnoreCase(role)) continue;
+            if (!storeToolMessages && "TOOL".equalsIgnoreCase(role)) continue;
 
-                        if (chatMessage != null) {
-                            chatMessages.add(chatMessage);
-                        }
-                    }
-
-                    return chatMessages;
+            ChatMessage chatMessage = switch (role.toUpperCase()) {
+                case "USER" -> UserMessage.from(text);
+                case "ASSISTANT" -> AiMessage.from(text);
+                case "SYSTEM" -> SystemMessage.from(text);
+                default -> {
+                    logger.warn("Unknown message role: {}", role);
+                    yield null;
                 }
+            };
+
+            if (chatMessage != null) {
+                chatMessages.add(chatMessage);
             }
-        } catch (Exception ex) {
-            logger.error("Error during working-term memory search", ex);
         }
 
-        return chatMessages;
+        // Apply context window limit
+        var trimmed = chatMessages.size() > maxContextWindow
+                ? chatMessages.subList(chatMessages.size() - maxContextWindow, chatMessages.size())
+                : chatMessages;
+
+        lastFetchedCount = trimmed.size();
+        return new ArrayList<>(trimmed);
     }
 
     @Override
     public void updateMessages(Object memoryId, List<ChatMessage> list) {
-        try {
-            // Filter out system and AI messages based on configuration
-            List<ChatMessage> messagesToStore = list.stream()
-                    .filter(msg -> storeSystemMessages || !(msg instanceof SystemMessage))
-                    .filter(msg -> storeAiMessages || !(msg instanceof AiMessage))
-                    .filter(msg -> storeToolMessages || !(msg instanceof ToolExecutionResultMessage))
-                    .toList();
+        var sanitizedId = sanitizeSessionId(memoryId.toString());
 
-            List<Map<String, String>> messages = messagesToStore.stream()
-                    .map(message -> {
-                        Map<String, String> messageMap = new HashMap<>();
-                        messageMap.put("role", determineRole(message));
-                        messageMap.put("content", messageContent(message));
-                        return messageMap;
-                    })
-                    .collect(Collectors.toList());
+        // Only send messages that are new since the last getMessages call
+        var newMessages = list.size() > lastFetchedCount
+                ? list.subList(lastFetchedCount, list.size())
+                : List.<ChatMessage>of();
 
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("session_id", memoryId.toString());
-            requestBody.put("messages", messages);
-            requestBody.put("namespace", namespace);
-            requestBody.put("ttl_seconds", timeToLiveInSeconds);
-            requestBody.put("long_term_memory_strategy",
-                    Map.of("strategy", "discrete",
-                            "config", Map.of()));
+        for (var message : newMessages) {
+            if (!storeSystemMessages && message instanceof SystemMessage) continue;
+            if (!storeAiMessages && message instanceof AiMessage) continue;
+            if (!storeToolMessages && message instanceof ToolExecutionResultMessage) continue;
 
-            String jsonPayload = objectMapper.writeValueAsString(requestBody);
+            String role = switch (message) {
+                case UserMessage ignored -> "USER";
+                case AiMessage ignored -> "ASSISTANT";
+                case SystemMessage ignored -> "SYSTEM";
+                default -> null;
+            };
 
-            var request = HttpRequest.newBuilder()
-                    .uri(URI.create(agentMemoryServerUrl + "/v1/working-memory/" +
-                            memoryId + "?context_window_max=" + maxContextWindow))
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(3))
-                    .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                    .build();
+            if (role == null) continue;
 
-            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (Exception ex) {
-            logger.error("Error updating working memory for session: {}", memoryId, ex);
+            String actorId = "USER".equals(role) ? sanitizeSessionId(memoryId.toString()) : "assistant";
+            String text = messageContent(message);
+            if (text == null || text.isBlank()) continue;
+
+            memoryService.addSessionMemoryEvent(sanitizedId, actorId, role, text, System.currentTimeMillis());
         }
+
+        lastFetchedCount = list.size();
     }
 
     @Override
     public void deleteMessages(Object memoryId) {
-        try {
-            var request = HttpRequest.newBuilder()
-                    .uri(URI.create(agentMemoryServerUrl + "/v1/working-memory/" +
-                            memoryId + "?namespace=" + namespace))
-                    .DELETE()
-                    .timeout(Duration.ofSeconds(3))
-                    .build();
-
-            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == HttpStatus.SC_OK ||
-                    response.statusCode() == HttpStatus.SC_NO_CONTENT ||
-                    response.statusCode() == HttpStatus.SC_ACCEPTED) {
-                logger.info("Successfully deleted chat messages for session: {}", memoryId);
-            } else if (response.statusCode() == HttpStatus.SC_NOT_FOUND) {
-                logger.warn("Chat messages not found for session: {}", memoryId);
-            } else {
-                logger.error("Failed to delete chat messages. Status code: {}, Response: {}",
-                        response.statusCode(), response.body());
-            }
-
-        } catch (Exception ex) {
-            logger.error("Error deleting chat messages for session: " + memoryId, ex);
-        }
+        var sanitizedId = sanitizeSessionId(memoryId.toString());
+        memoryService.deleteSessionMemory(sanitizedId);
     }
 
-    public long getTimeToLiveInSeconds() {
-        return timeToLiveInSeconds;
-    }
+    // ---------------------------------------------------------------------------
+    // Getters / setters
+    // ---------------------------------------------------------------------------
 
-    public void setTimeToLiveInSeconds(long timeToLiveInSeconds) {
-        this.timeToLiveInSeconds = timeToLiveInSeconds;
-    }
+    public boolean isStoreSystemMessages() { return storeSystemMessages; }
+    public void setStoreSystemMessages(boolean v) { this.storeSystemMessages = v; }
 
-    public boolean isStoreSystemMessages() {
-        return storeSystemMessages;
-    }
+    public boolean isStoreAiMessages() { return storeAiMessages; }
+    public void setStoreAiMessages(boolean v) { this.storeAiMessages = v; }
 
-    public void setStoreSystemMessages(boolean storeSystemMessages) {
-        this.storeSystemMessages = storeSystemMessages;
-    }
+    public boolean isStoreToolMessages() { return storeToolMessages; }
+    public void setStoreToolMessages(boolean v) { this.storeToolMessages = v; }
 
-    public boolean isStoreAiMessages() {
-        return storeAiMessages;
-    }
+    public int getMaxContextWindow() { return maxContextWindow; }
+    public void setMaxContextWindow(int v) { this.maxContextWindow = v; }
 
-    public void setStoreAiMessages(boolean storeAiMessages) {
-        this.storeAiMessages = storeAiMessages;
-    }
-
-    public boolean isStoreToolMessages() {
-        return storeToolMessages;
-    }
-
-    public void setStoreToolMessages(boolean storeToolMessages) {
-        this.storeToolMessages = storeToolMessages;
-    }
-
-    public String getNamespace() {
-        return namespace;
-    }
-
-    public void setNamespace(String namespace) {
-        this.namespace = namespace;
-    }
-
-    public int getMaxContextWindow() {
-        return maxContextWindow;
-    }
-
-    public void setMaxContextWindow(int maxContextWindow) {
-        this.maxContextWindow = maxContextWindow;
-    }
+    // ---------------------------------------------------------------------------
+    // Builder
+    // ---------------------------------------------------------------------------
 
     public static Builder builder() {
         return new Builder();
     }
 
     public static class Builder {
-        private String agentMemoryServerUrl;
-        private Optional<Long> timeToLiveInSeconds = Optional.empty();
+        private MemoryService memoryService;
         private Optional<Boolean> storeSystemMessages = Optional.empty();
         private Optional<Boolean> storeAiMessages = Optional.empty();
         private Optional<Boolean> storeToolMessages = Optional.empty();
-        private Optional<String> namespace = Optional.empty();
         private Optional<Integer> maxContextWindow = Optional.empty();
 
-        public Builder agentMemoryServerUrl(String value) {
-            this.agentMemoryServerUrl = value;
-            return this;
-        }
-
-        public Builder timeToLiveInSeconds(long value) {
-            this.timeToLiveInSeconds = Optional.of(value);
+        public Builder memoryService(MemoryService value) {
+            this.memoryService = value;
             return this;
         }
 
@@ -251,30 +185,20 @@ public class WorkingMemoryStore implements ChatMemoryStore {
             return this;
         }
 
-        public Builder namespace(String value) {
-            this.namespace = Optional.of(value);
-            return this;
-        }
-
         public Builder maxContextWindow(int value) {
             this.maxContextWindow = Optional.of(value);
             return this;
         }
 
         public WorkingMemoryStore build() {
-            if (agentMemoryServerUrl == null) {
-                throw new IllegalStateException("agentMemoryServerUrl is required");
-            }
-
-            WorkingMemoryStore workingMemoryStore = new WorkingMemoryStore(agentMemoryServerUrl);
-            timeToLiveInSeconds.ifPresent(workingMemoryStore::setTimeToLiveInSeconds);
-            storeSystemMessages.ifPresent(workingMemoryStore::setStoreSystemMessages);
-            storeAiMessages.ifPresent(workingMemoryStore::setStoreAiMessages);
-            storeToolMessages.ifPresent(workingMemoryStore::setStoreToolMessages);
-            namespace.ifPresent(workingMemoryStore::setNamespace);
-            maxContextWindow.ifPresent(workingMemoryStore::setMaxContextWindow);
-
-            return workingMemoryStore;
+            java.util.Objects.requireNonNull(memoryService, "memoryService is required");
+            var store = new WorkingMemoryStore();
+            store.memoryService = this.memoryService;
+            storeSystemMessages.ifPresent(store::setStoreSystemMessages);
+            storeAiMessages.ifPresent(store::setStoreAiMessages);
+            storeToolMessages.ifPresent(store::setStoreToolMessages);
+            maxContextWindow.ifPresent(store::setMaxContextWindow);
+            return store;
         }
     }
 }

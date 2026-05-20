@@ -3,41 +3,6 @@ variable "application_prefix" {
   type        = string
 }
 
-variable "database_predefined" {
-  description = "Whether to use a predefined Redis database"
-  type        = bool
-  default     = false
-}
-
-variable "subscription_name" {
-  description = "Name of the Redis subscription"
-  type        = string
-}
-
-variable "database_name" {
-  description = "Name of the Redis database"
-  type        = string
-}
-
-variable "payment_card_type" {
-  description = "Type of the payment card"
-  type        = string
-}
-
-variable "payment_card_last_four" {
-  description = "Last four digits of the payment card"
-  type        = string
-}
-
-variable "essentials_plan_cloud_provider" {
-  description = "Cloud provider for the essentials plan"
-  type        = string
-}
-
-variable "essentials_plan_cloud_region" {
-  description = "Cloud region for the essentials plan"
-  type        = string
-}
 
 variable "openai_api_key" {
   description = "OpenAI API key"
@@ -90,106 +55,20 @@ variable "langcache_cache_id" {
   type        = string
 }
 
-variable "agent_memory_server_image" {
-  description = "Container image for the Redis Agent Memory Server"
+variable "redis_agent_memory_api_url" {
+  description = "Redis Agent Memory managed service API endpoint"
   type        = string
-  default     = "redislabs/agent-memory-server:0.13.2"
 }
 
-variable "api_desired_count" {
-  description = "Desired task count for the Agent Memory API service"
-  type        = number
-  default     = 1
+variable "redis_agent_memory_api_key" {
+  description = "Redis Agent Memory managed service API key (Bearer token)"
+  type        = string
+  sensitive   = true
 }
 
-variable "worker_desired_count" {
-  description = "Desired task count for the Agent Memory worker service"
-  type        = number
-  default     = 1
-}
-
-variable "api_min_capacity" {
-  description = "Minimum task count for API autoscaling"
-  type        = number
-  default     = 1
-}
-
-variable "api_max_capacity" {
-  description = "Maximum task count for API autoscaling"
-  type        = number
-  default     = 4
-}
-
-variable "worker_min_capacity" {
-  description = "Minimum task count for worker autoscaling"
-  type        = number
-  default     = 1
-}
-
-variable "worker_max_capacity" {
-  description = "Maximum task count for worker autoscaling"
-  type        = number
-  default     = 4
-}
-
-variable "api_cpu_target" {
-  description = "Target CPU utilization percentage for API autoscaling"
-  type        = number
-  default     = 60
-}
-
-variable "api_memory_target" {
-  description = "Target memory utilization percentage for API autoscaling"
-  type        = number
-  default     = 70
-}
-
-variable "worker_cpu_target" {
-  description = "Target CPU utilization percentage for worker autoscaling"
-  type        = number
-  default     = 60
-}
-
-variable "worker_memory_target" {
-  description = "Target memory utilization percentage for worker autoscaling"
-  type        = number
-  default     = 70
-}
-
-variable "api_scale_in_cooldown" {
-  description = "Scale-in cooldown (seconds) for API autoscaling"
-  type        = number
-  default     = 120
-}
-
-variable "api_scale_out_cooldown" {
-  description = "Scale-out cooldown (seconds) for API autoscaling"
-  type        = number
-  default     = 60
-}
-
-variable "worker_scale_in_cooldown" {
-  description = "Scale-in cooldown (seconds) for worker autoscaling"
-  type        = number
-  default     = 120
-}
-
-variable "worker_scale_out_cooldown" {
-  description = "Scale-out cooldown (seconds) for worker autoscaling"
-  type        = number
-  default     = 60
-}
-
-variable "enable_alb_request_scaling" {
-  description = "Enable ALB request count autoscaling for the API service"
-  type        = bool
-  default     = false
-}
-
-variable "api_alb_requests_per_target" {
-  description = "Target ALB requests per target for API autoscaling"
-  type        = number
-  default     = 100
+variable "redis_agent_memory_store_id" {
+  description = "Redis Agent Memory Store ID"
+  type        = string
 }
 
 variable "alexa_skill_id" {
