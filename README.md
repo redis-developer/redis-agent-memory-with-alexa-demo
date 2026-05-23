@@ -1,7 +1,7 @@
-# Agent Memory Server with Alexa Demo
+# Redis Agent Memory with Alexa Demo
 
 ## Overview
-This demo demonstrates how [Redis Agent Memory](https://redis.io/docs/latest/operate/rc/agent-memory/) — the managed AI memory service on Redis Cloud — can extend Amazon Alexa with conversational memory. Built using Java, LangChain4J, AWS Lambda, and Redis Cloud, it enables Alexa to recall past conversations and deliver contextual, intelligent responses. It showcases how Redis can act as a memory layer for AI assistants, enriching the natural language experience through state persistence and fast retrieval.
+This demo demonstrates how [Redis Agent Memory](https://redis.io/agent-memory/) — the managed AI memory service on Redis Cloud — can extend Amazon Alexa with conversational memory. Built using Java, LangChain4J, AWS Lambda, and Redis Cloud, it enables Alexa to recall past conversations and deliver contextual, intelligent responses. It showcases how Redis can act as a memory layer for AI assistants, enriching the natural language experience through state persistence and fast retrieval.
 
 ## Table of Contents
 - [Demo Objectives](#demo-objectives)
@@ -16,7 +16,7 @@ This demo demonstrates how [Redis Agent Memory](https://redis.io/docs/latest/ope
 
 ## Demo Objectives
 - Demonstrate Redis as a memory persistence layer for conversational AI.
-- Show how to integrate Redis Agent Memory (managed service) via REST API calls.
+- Show how to integrate Redis Agent Memory managed service via REST API calls.
 - Automate Alexa skill deployment using Terraform, AWS Lambda, and the ASK CLI.
 - Illustrate how Redis Cloud can support scalable AI use cases.
 - Demonstrate how to implement context engineering with LangChain4J.
