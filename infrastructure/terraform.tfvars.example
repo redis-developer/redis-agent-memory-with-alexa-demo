@@ -1,7 +1,7 @@
 application_prefix = "ams-with-alexa-demo"
 
 openai_api_key    = "your-openai-api-key"
-openai_model_name = "gpt-3.5-turbo"
+openai_model_name = "gpt-4o"
 cohere_api_key = "your-cohere-api-key"
 
 langcache_api_base_url = "langcache-api-base-url"
