@@ -127,12 +127,12 @@ To remove all deployed resources:
 ```
 
 ## Slide Deck
-📑 [Agent Memory Server with Alexa Presentation](./slides/agent-memory-server-with-alexa-demo.pdf)    
+📑 [Beyond Prompting: Context Engineering for Production-Grade AI](./slides/slides.pdf)    
 Covers demo goals, motivations for a memory layer, and architecture overview.
 
 ## Architecture
-![Skill Handler Implementation](./assets/skill-handler-impl.png)
-This architecture uses an Alexa skill written in Java and hosted as an AWS Lambda function. The Lambda implements a stream handler that processes user requests and responses, using Redis Agent Memory — the managed memory service on Redis Cloud — as its memory backend.
+![Software Architecture](./images/software-architecture.png)
+This architecture uses an Alexa skill written in Java and hosted as an AWS Lambda function. The Lambda implements a stream handler that processes user requests and responses, using Redis Agent Memory and Redis LangCache — which are managed services on Redis Cloud — as its backend layer.
 
 ![Chat Assistant Service](./assets/chat-assistant-service.png)
 As part of the stream handler implementation, it uses a Chat Assistant Service that leverages LangChain4J to manage interactions with Redis Agent Memory. This service implements context engineering, ensuring that conversations are enriched with relevant historical data retrieved from Redis. OpenAI is the LLM used to process and generate responses.
